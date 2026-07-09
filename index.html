@@ -14,6 +14,7 @@
           <h1>배경 제거 스튜디오</h1>
         </div>
         <div class="top-actions">
+          <a class="source-link" href="https://github.com/chj1027/IBRS" target="_blank" rel="noreferrer">소스코드</a>
           <button id="resetButton" class="ghost-button" type="button" disabled>초기화</button>
           <button id="downloadButton" class="primary-button" type="button" disabled>PNG 다운로드</button>
         </div>
@@ -79,6 +80,13 @@
         <aside class="right-panel">
           <section class="control-section">
             <h2>처리 품질</h2>
+            <label class="field">
+              <span>AI 방식</span>
+              <select id="aiEngine">
+                <option value="imgly">IMG.LY 범용</option>
+                <option value="mediapipe">MediaPipe 인물용</option>
+              </select>
+            </label>
             <label class="field">
               <span>품질 모드</span>
               <select id="qualityMode">

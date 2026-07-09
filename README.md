@@ -5,7 +5,7 @@
 ## 기능
 
 - 이미지 업로드 및 미리보기
-- MediaPipe 기반 브라우저 배경 제거
+- AI 방식 선택: IMG.LY 범용 / MediaPipe 인물용
 - 단계별 처리 진행률 표시
 - 결과/비교/원본 보기
 - 마스크 보기
@@ -15,7 +15,12 @@
 
 ## 라이선스 메모
 
-배경 제거 엔진은 Google MediaPipe Tasks Vision을 사용합니다. MediaPipe는 Apache-2.0 라이선스이며, 사용자의 이미지는 브라우저에서 처리됩니다.
+배경 제거 엔진은 두 가지를 선택할 수 있습니다.
+
+- IMG.LY `@imgly/background-removal`: AGPL-3.0 라이선스
+- Google MediaPipe Tasks Vision: Apache-2.0 라이선스
+
+사용자의 이미지는 브라우저에서 처리됩니다. IMG.LY 방식을 공개 서비스에서 사용할 경우 AGPL-3.0 조건을 준수하기 위해 이 저장소의 소스코드를 공개 상태로 유지해야 합니다.
 
 ## 배포
 

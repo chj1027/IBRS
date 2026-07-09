@@ -13,6 +13,7 @@ const progressValue = document.querySelector("#progressValue");
 const progressBar = document.querySelector("#progressBar");
 const engineLabel = document.querySelector("#engineLabel");
 const sizeLabel = document.querySelector("#sizeLabel");
+const aiEngine = document.querySelector("#aiEngine");
 const qualityMode = document.querySelector("#qualityMode");
 const processSize = document.querySelector("#processSize");
 const thresholdRange = document.querySelector("#thresholdRange");
@@ -72,6 +73,7 @@ const setProgress = (value, label) => {
 const setBusy = (busy) => {
   processButton.disabled = busy || !originalImage;
   fileInput.disabled = busy;
+  aiEngine.disabled = busy;
   qualityMode.disabled = busy;
   processSize.disabled = busy;
 };
@@ -251,7 +253,27 @@ const readMaskData = (result, expectedLength) => {
   return new Uint8ClampedArray(expectedLength);
 };
 
-const removeBackgroundWithAi = async () => {
+const removeBackgroundWithImgly = async () => {
+  setProgress(18, "IMG.LY 로딩");
+  const { removeBackground } = await import("https://esm.sh/@imgly/background-removal@1.5.5");
+  setProgress(42, "이미지 준비");
+  const inputBlob = await resizeImageFile(originalImage);
+  setProgress(68, "배경 분석");
+  const resultBlob = await removeBackground(inputBlob, {
+    debug: false,
+    output: {
+      format: "image/png",
+      quality: 0.95,
+    },
+  });
+
+  setProgress(86, "마스크 생성");
+  removedBitmap = await loadBitmap(resultBlob);
+  engineLabel.textContent = "IMG.LY";
+  return drawBitmapToImageData(removedBitmap);
+};
+
+const removeBackgroundWithMediaPipe = async () => {
   setProgress(15, "이미지 준비");
   const segmenter = await getMediaPipeSegmenter();
   const inputCanvas = createProcessingCanvas();
@@ -275,6 +297,14 @@ const removeBackgroundWithAi = async () => {
   result.close?.();
   engineLabel.textContent = "MediaPipe";
   return imageData;
+};
+
+const removeBackgroundWithSelectedEngine = () => {
+  if (aiEngine.value === "mediapipe") {
+    return removeBackgroundWithMediaPipe();
+  }
+
+  return removeBackgroundWithImgly();
 };
 
 const boxAlpha = (alpha, width, height, radius, mode) => {
@@ -548,18 +578,19 @@ const processImage = async () => {
   if (!originalImage) return;
   setBusy(true);
   downloadButton.disabled = true;
-  setStatus("MediaPipe 모델로 배경을 분석하는 중입니다. 첫 실행은 시간이 걸릴 수 있습니다.", "busy");
+  const engineName = aiEngine.value === "mediapipe" ? "MediaPipe 인물용" : "IMG.LY 범용";
+  setStatus(`${engineName} 모델로 배경을 분석하는 중입니다. 첫 실행은 시간이 걸릴 수 있습니다.`, "busy");
   setProgress(5, "시작");
 
   try {
-    baseResultImageData = await removeBackgroundWithAi();
+    baseResultImageData = await removeBackgroundWithSelectedEngine();
     setProgress(92, "후처리");
     setStatus("배경 제거가 완료되었습니다. 오른쪽 조절값으로 가장자리를 다듬을 수 있습니다.", "ready");
   } catch (error) {
     console.warn(error);
     setProgress(88, "fallback 처리");
     baseResultImageData = simpleColorFallback();
-    setStatus("MediaPipe 실행에 실패해 색상 기반 방식으로 처리했습니다. 단색 배경 이미지에서 가장 잘 동작합니다.", "error");
+    setStatus("선택한 AI 방식 실행에 실패해 색상 기반 방식으로 처리했습니다. 단색 배경 이미지에서 가장 잘 동작합니다.", "error");
   } finally {
     setBusy(false);
     downloadButton.disabled = false;
@@ -669,6 +700,20 @@ customBg.addEventListener("input", () => {
   document.querySelectorAll(".swatch, #customBg").forEach((item) => item.classList.remove("active"));
   customBg.classList.add("active");
   previewBackground = customBg.value;
+  renderCanvas();
+});
+
+aiEngine.addEventListener("change", () => {
+  if (!originalImage) return;
+  const engineName = aiEngine.value === "mediapipe" ? "MediaPipe 인물용" : "IMG.LY 범용";
+  engineLabel.textContent = "대기 중";
+  baseResultImageData = null;
+  finalImageData = null;
+  manualMask = null;
+  downloadButton.disabled = true;
+  clearBrushButton.disabled = true;
+  setProgress(0, "대기");
+  setStatus(`${engineName}으로 다시 배경 제거를 실행하세요.`, "ready");
   renderCanvas();
 });
 
