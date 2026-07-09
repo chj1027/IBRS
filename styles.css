@@ -354,7 +354,7 @@ h2 {
 
 .preview-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: calc(100vh - 124px);
   min-height: 560px;
   overflow: hidden;
@@ -367,6 +367,24 @@ h2 {
   gap: 12px;
   padding: 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.compare-control {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 360px) auto;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.compare-control[hidden] {
+  display: none;
 }
 
 .segmented-control,
@@ -413,6 +431,7 @@ h2 {
 
 .canvas-stage {
   position: relative;
+  grid-row: 3;
   display: grid;
   place-items: center;
   overflow: auto;
@@ -476,6 +495,7 @@ h2 {
 
 .field,
 .range-field,
+.file-field,
 .toggle-field {
   display: grid;
   gap: 8px;
@@ -486,6 +506,7 @@ h2 {
 
 .field > span,
 .range-field > span,
+.file-field > span,
 .toggle-field {
   position: relative;
   display: flex;
@@ -518,6 +539,18 @@ h2 {
   padding: 0 10px;
   background: #ffffff;
   color: var(--text);
+}
+
+.file-field input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .field select:disabled,

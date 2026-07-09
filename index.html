@@ -77,6 +77,11 @@
               <button id="zoomInButton" type="button" aria-label="확대">+</button>
             </div>
           </div>
+          <div id="compareControl" class="compare-control" hidden>
+            <span>원본</span>
+            <input id="compareRange" type="range" min="5" max="95" value="50" aria-label="비교 경계 위치" />
+            <span>결과</span>
+          </div>
 
           <div id="canvasStage" class="canvas-stage checkerboard">
             <canvas id="mainCanvas"></canvas>
@@ -201,6 +206,24 @@
               <button class="swatch gray" type="button" data-bg="#d6dbe1" aria-label="회색"></button>
               <input id="customBg" type="color" value="#8ecae6" aria-label="사용자 배경색" />
             </div>
+            <label class="file-field">
+              <span>배경 이미지 <button class="help-tip" type="button" aria-label="배경 이미지 설명">?</button><small class="tip-text">결과 뒤에 깔 이미지를 선택합니다. 출력 프레임 크기에 맞춰 중앙 기준으로 채워집니다.</small></span>
+              <input id="backgroundImageInput" type="file" accept="image/*" />
+            </label>
+            <button id="clearBackgroundImageButton" class="ghost-button full-width" type="button" disabled>배경 이미지 제거</button>
+          </section>
+
+          <section class="control-section">
+            <h2>다운로드 옵션</h2>
+            <label class="field">
+              <span>저장 방식 <button class="help-tip" type="button" aria-label="저장 방식 설명">?</button><small class="tip-text">투명 PNG는 배경을 제외하고, 배경 포함은 현재 미리보기 배경을 결과에 합성해서 저장합니다.</small></span>
+              <select id="downloadMode">
+                <option value="transparent-png">투명 PNG</option>
+                <option value="background-png">배경 포함 PNG</option>
+                <option value="background-jpeg">배경 포함 JPG</option>
+                <option value="background-webp">배경 포함 WebP</option>
+              </select>
+            </label>
           </section>
         </aside>
       </section>

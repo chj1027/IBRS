@@ -38,6 +38,11 @@ const zoomLabel = document.querySelector("#zoomLabel");
 const customBg = document.querySelector("#customBg");
 const clearBrushButton = document.querySelector("#clearBrushButton");
 const blackPreviewButton = document.querySelector("#blackPreviewButton");
+const compareControl = document.querySelector("#compareControl");
+const compareRange = document.querySelector("#compareRange");
+const backgroundImageInput = document.querySelector("#backgroundImageInput");
+const clearBackgroundImageButton = document.querySelector("#clearBackgroundImageButton");
+const downloadMode = document.querySelector("#downloadMode");
 
 const ctx = mainCanvas.getContext("2d", { willReadFrequently: true });
 
@@ -49,6 +54,7 @@ let finalImageData = null;
 let manualMask = null;
 let currentView = "result";
 let previewBackground = "transparent";
+let backgroundImageBitmap = null;
 let zoom = 1;
 let isPainting = false;
 let imageSegmenter = null;
@@ -62,6 +68,7 @@ const state = {
   brushSize: Number(brushSizeRange.value),
   brushSoftness: Number(brushSoftnessRange.value),
   outputPadding: Number(outputPaddingRange.value),
+  compareSplit: Number(compareRange.value),
   brushMode: "erase",
 };
 
@@ -565,10 +572,31 @@ const drawImageDataContain = (imageData) => {
   ctx.putImageData(imageData, 0, 0);
 };
 
+const drawCoverImage = (targetCtx, bitmap, width, height) => {
+  const sourceRatio = bitmap.width / bitmap.height;
+  const targetRatio = width / height;
+  let sourceWidth = bitmap.width;
+  let sourceHeight = bitmap.height;
+  let sourceX = 0;
+  let sourceY = 0;
+
+  if (sourceRatio > targetRatio) {
+    sourceWidth = Math.round(bitmap.height * targetRatio);
+    sourceX = Math.round((bitmap.width - sourceWidth) / 2);
+  } else {
+    sourceHeight = Math.round(bitmap.width / targetRatio);
+    sourceY = Math.round((bitmap.height - sourceHeight) / 2);
+  }
+
+  targetCtx.drawImage(bitmap, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height);
+};
+
 const composeOnBackground = (imageData, background) => {
   const canvas = new OffscreenCanvas(imageData.width, imageData.height);
   const canvasCtx = canvas.getContext("2d");
-  if (background !== "transparent") {
+  if (background === "image" && backgroundImageBitmap) {
+    drawCoverImage(canvasCtx, backgroundImageBitmap, imageData.width, imageData.height);
+  } else if (background !== "transparent") {
     canvasCtx.fillStyle = background;
     canvasCtx.fillRect(0, 0, imageData.width, imageData.height);
   }
@@ -666,7 +694,7 @@ const renderCompare = () => {
   const result = composeOnBackground(finalImageData, previewBackground);
   const original = drawBitmapToImageData(originalBitmap, result.width, result.height);
   const compare = new ImageData(result.width, result.height);
-  const split = Math.floor(result.width / 2);
+  const split = Math.floor(result.width * (state.compareSplit / 100));
 
   for (let y = 0; y < result.height; y += 1) {
     for (let x = 0; x < result.width; x += 1) {
@@ -682,6 +710,13 @@ const renderCompare = () => {
   drawImageDataContain(compare);
   ctx.fillStyle = "#0f766e";
   ctx.fillRect(split - 1, 0, 2, result.height);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+  ctx.fillRect(Math.max(0, split - 34), 10, 68, 24);
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "700 13px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`${state.compareSplit}%`, split, 22);
 };
 
 const renderCanvas = () => {
@@ -692,9 +727,11 @@ const renderCanvas = () => {
     "brush-ready",
     Boolean(finalImageData) && currentView !== "original" && currentView !== "compare" && currentView !== "output",
   );
+  compareControl.hidden = !(currentView === "compare" && Boolean(finalImageData));
   emptyState.style.display = "none";
   canvasStage.classList.toggle("checkerboard", previewBackground === "transparent" && currentView !== "mask");
-  canvasStage.style.backgroundColor = currentView === "mask" ? "#1f2933" : previewBackground === "transparent" ? "#ffffff" : previewBackground;
+  canvasStage.style.backgroundColor =
+    currentView === "mask" || previewBackground === "image" ? "#1f2933" : previewBackground === "transparent" ? "#ffffff" : previewBackground;
 
   if (currentView === "original") {
     drawImageDataContain(drawBitmapToImageData(originalBitmap));
@@ -786,13 +823,18 @@ const processImage = async () => {
 const downloadPng = () => {
   if (!finalImageData) return;
   const exportImageData = createOutputImageData(finalImageData);
+  const shouldComposeBackground = downloadMode.value !== "transparent-png";
+  const exportBackground = previewBackground === "transparent" && shouldComposeBackground ? "#ffffff" : previewBackground;
+  const renderedImageData = shouldComposeBackground ? composeOnBackground(exportImageData, exportBackground) : exportImageData;
   const exportCanvas = document.createElement("canvas");
-  exportCanvas.width = exportImageData.width;
-  exportCanvas.height = exportImageData.height;
-  exportCanvas.getContext("2d").putImageData(exportImageData, 0, 0);
+  exportCanvas.width = renderedImageData.width;
+  exportCanvas.height = renderedImageData.height;
+  exportCanvas.getContext("2d").putImageData(renderedImageData, 0, 0);
   const link = document.createElement("a");
-  link.download = "background-removed.png";
-  link.href = exportCanvas.toDataURL("image/png");
+  const extension = downloadMode.value === "background-jpeg" ? "jpg" : downloadMode.value === "background-webp" ? "webp" : "png";
+  const mimeType = downloadMode.value === "background-jpeg" ? "image/jpeg" : downloadMode.value === "background-webp" ? "image/webp" : "image/png";
+  link.download = `background-removed.${extension}`;
+  link.href = exportCanvas.toDataURL(mimeType, 0.92);
   link.click();
 };
 
@@ -803,7 +845,16 @@ const resetAll = () => {
   baseResultImageData = null;
   finalImageData = null;
   manualMask = null;
+  backgroundImageBitmap = null;
   fileInput.value = "";
+  backgroundImageInput.value = "";
+  clearBackgroundImageButton.disabled = true;
+  previewBackground = "transparent";
+  state.compareSplit = 50;
+  compareRange.value = state.compareSplit;
+  compareControl.hidden = true;
+  document.querySelectorAll(".swatch, #customBg").forEach((item) => item.classList.remove("active"));
+  document.querySelector('[data-bg="transparent"]')?.classList.add("active");
   mainCanvas.style.display = "none";
   emptyState.style.display = "block";
   processButton.disabled = true;
@@ -885,6 +936,54 @@ customBg.addEventListener("input", () => {
   customBg.classList.add("active");
   previewBackground = customBg.value;
   renderCanvas();
+});
+
+backgroundImageInput.addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    setStatus("배경으로 사용할 이미지 파일을 선택하세요.", "error");
+    return;
+  }
+
+  try {
+    backgroundImageBitmap = await loadBitmap(file);
+    previewBackground = "image";
+    document.querySelectorAll(".swatch, #customBg").forEach((item) => item.classList.remove("active"));
+    clearBackgroundImageButton.disabled = false;
+    setStatus("배경 이미지가 적용되었습니다. 배경 포함 저장에도 반영됩니다.", finalImageData ? "ready" : "idle");
+    renderCanvas();
+  } catch (error) {
+    console.error(error);
+    backgroundImageBitmap = null;
+    backgroundImageInput.value = "";
+    clearBackgroundImageButton.disabled = true;
+    setStatus("배경 이미지를 불러오지 못했습니다.", "error");
+  }
+});
+
+clearBackgroundImageButton.addEventListener("click", () => {
+  backgroundImageBitmap = null;
+  backgroundImageInput.value = "";
+  clearBackgroundImageButton.disabled = true;
+  previewBackground = "transparent";
+  document.querySelectorAll(".swatch, #customBg").forEach((item) => item.classList.remove("active"));
+  document.querySelector('[data-bg="transparent"]')?.classList.add("active");
+  renderCanvas();
+});
+
+compareRange.addEventListener("input", () => {
+  state.compareSplit = Number(compareRange.value);
+  if (currentView === "compare") {
+    renderCanvas();
+  }
+});
+
+downloadMode.addEventListener("change", () => {
+  if (finalImageData) {
+    setStatus("다운로드 저장 방식이 변경되었습니다.", "ready");
+  }
 });
 
 const clearProcessedResult = () => {
