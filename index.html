@@ -50,6 +50,7 @@
             <div class="segmented-control" aria-label="preview mode">
               <button class="active" type="button" data-view="result">결과</button>
               <button type="button" data-view="compare">비교</button>
+              <button type="button" data-view="mask">마스크</button>
               <button type="button" data-view="original">원본</button>
             </div>
             <div class="zoom-group">
@@ -106,6 +107,23 @@
               <span>색 번짐 제거 <b id="spillValue">18</b></span>
               <input id="spillRange" type="range" min="0" max="70" value="18" />
             </label>
+          </section>
+
+          <section class="control-section">
+            <h2>수동 보정</h2>
+            <div class="tool-buttons" aria-label="brush mode">
+              <button class="active" type="button" data-brush="erase">지우기</button>
+              <button type="button" data-brush="restore">복원</button>
+            </div>
+            <label class="range-field">
+              <span>브러시 크기 <b id="brushSizeValue">36</b></span>
+              <input id="brushSizeRange" type="range" min="8" max="140" value="36" />
+            </label>
+            <label class="range-field">
+              <span>브러시 부드러움 <b id="brushSoftnessValue">45</b></span>
+              <input id="brushSoftnessRange" type="range" min="0" max="100" value="45" />
+            </label>
+            <button id="clearBrushButton" class="ghost-button full-width" type="button" disabled>수동 보정 초기화</button>
           </section>
 
           <section class="control-section">

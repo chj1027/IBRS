@@ -16,14 +16,19 @@ const thresholdRange = document.querySelector("#thresholdRange");
 const featherRange = document.querySelector("#featherRange");
 const edgeRange = document.querySelector("#edgeRange");
 const spillRange = document.querySelector("#spillRange");
+const brushSizeRange = document.querySelector("#brushSizeRange");
+const brushSoftnessRange = document.querySelector("#brushSoftnessRange");
 const thresholdValue = document.querySelector("#thresholdValue");
 const featherValue = document.querySelector("#featherValue");
 const edgeValue = document.querySelector("#edgeValue");
 const spillValue = document.querySelector("#spillValue");
+const brushSizeValue = document.querySelector("#brushSizeValue");
+const brushSoftnessValue = document.querySelector("#brushSoftnessValue");
 const zoomOutButton = document.querySelector("#zoomOutButton");
 const zoomInButton = document.querySelector("#zoomInButton");
 const zoomLabel = document.querySelector("#zoomLabel");
 const customBg = document.querySelector("#customBg");
+const clearBrushButton = document.querySelector("#clearBrushButton");
 
 const ctx = mainCanvas.getContext("2d", { willReadFrequently: true });
 
@@ -32,15 +37,20 @@ let originalBitmap = null;
 let removedBitmap = null;
 let baseResultImageData = null;
 let finalImageData = null;
+let manualMask = null;
 let currentView = "result";
 let previewBackground = "transparent";
 let zoom = 1;
+let isPainting = false;
 
 const state = {
   threshold: Number(thresholdRange.value),
   feather: Number(featherRange.value),
   edge: Number(edgeRange.value),
   spill: Number(spillRange.value),
+  brushSize: Number(brushSizeRange.value),
+  brushSoftness: Number(brushSoftnessRange.value),
+  brushMode: "erase",
 };
 
 const setStatus = (message, type = "idle") => {
@@ -60,6 +70,8 @@ const updateRangeLabels = () => {
   featherValue.textContent = state.feather;
   edgeValue.textContent = state.edge;
   spillValue.textContent = state.spill;
+  brushSizeValue.textContent = state.brushSize;
+  brushSoftnessValue.textContent = state.brushSoftness;
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -224,6 +236,80 @@ const blurAlpha = (alpha, width, height, radius) => {
   return current;
 };
 
+const resetManualMask = () => {
+  if (!baseResultImageData) {
+    manualMask = null;
+    return;
+  }
+
+  manualMask = new Uint8ClampedArray(baseResultImageData.width * baseResultImageData.height);
+  manualMask.fill(128);
+  clearBrushButton.disabled = true;
+};
+
+const applyManualMask = (alpha, width, height) => {
+  if (!manualMask || manualMask.length !== width * height) return alpha;
+
+  const output = new Uint8ClampedArray(alpha);
+  for (let index = 0; index < manualMask.length; index += 1) {
+    if (manualMask[index] !== 128) {
+      output[index] = manualMask[index];
+    }
+  }
+  return output;
+};
+
+const createMaskImageData = (imageData) => {
+  const mask = new ImageData(imageData.width, imageData.height);
+  for (let index = 0; index < imageData.data.length; index += 4) {
+    const alpha = imageData.data[index + 3];
+    mask.data[index] = alpha;
+    mask.data[index + 1] = alpha;
+    mask.data[index + 2] = alpha;
+    mask.data[index + 3] = 255;
+  }
+  return mask;
+};
+
+const getCanvasPoint = (event) => {
+  const rect = mainCanvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return null;
+
+  return {
+    x: clamp(Math.floor(((event.clientX - rect.left) / rect.width) * mainCanvas.width), 0, mainCanvas.width - 1),
+    y: clamp(Math.floor(((event.clientY - rect.top) / rect.height) * mainCanvas.height), 0, mainCanvas.height - 1),
+  };
+};
+
+const paintManualMask = (point) => {
+  if (!manualMask || !finalImageData || !point) return;
+
+  const { width, height } = finalImageData;
+  const radius = state.brushSize / 2;
+  const softness = state.brushSoftness / 100;
+  const hardRadius = radius * (1 - softness);
+  const value = state.brushMode === "restore" ? 255 : 0;
+  const startX = Math.max(0, Math.floor(point.x - radius));
+  const endX = Math.min(width - 1, Math.ceil(point.x + radius));
+  const startY = Math.max(0, Math.floor(point.y - radius));
+  const endY = Math.min(height - 1, Math.ceil(point.y + radius));
+
+  for (let y = startY; y <= endY; y += 1) {
+    for (let x = startX; x <= endX; x += 1) {
+      const distance = Math.hypot(x - point.x, y - point.y);
+      if (distance > radius) continue;
+
+      const fade = softness === 0 ? 1 : 1 - clamp((distance - hardRadius) / Math.max(radius - hardRadius, 1), 0, 1);
+      const index = y * width + x;
+      const current = manualMask[index] === 128 ? finalImageData.data[index * 4 + 3] : manualMask[index];
+      manualMask[index] = Math.round(current * (1 - fade) + value * fade);
+    }
+  }
+
+  clearBrushButton.disabled = false;
+  applyAdjustments();
+};
+
 const applyAdjustments = () => {
   if (!baseResultImageData) return;
 
@@ -241,6 +327,7 @@ const applyAdjustments = () => {
   }
 
   alpha = blurAlpha(alpha, width, height, state.feather);
+  alpha = applyManualMask(alpha, width, height);
 
   for (let pixel = 0, index = 0; index < data.length; pixel += 1, index += 4) {
     const a = alpha[pixel];
@@ -302,14 +389,17 @@ const renderCanvas = () => {
   if (!originalBitmap) return;
 
   mainCanvas.style.display = "block";
+  mainCanvas.classList.toggle("brush-ready", Boolean(finalImageData) && currentView !== "original" && currentView !== "compare");
   emptyState.style.display = "none";
-  canvasStage.classList.toggle("checkerboard", previewBackground === "transparent");
-  canvasStage.style.backgroundColor = previewBackground === "transparent" ? "#ffffff" : previewBackground;
+  canvasStage.classList.toggle("checkerboard", previewBackground === "transparent" && currentView !== "mask");
+  canvasStage.style.backgroundColor = currentView === "mask" ? "#1f2933" : previewBackground === "transparent" ? "#ffffff" : previewBackground;
 
   if (currentView === "original") {
     drawImageDataContain(drawBitmapToImageData(originalBitmap));
   } else if (currentView === "compare" && finalImageData) {
     renderCompare();
+  } else if (currentView === "mask" && finalImageData) {
+    drawImageDataContain(createMaskImageData(finalImageData));
   } else if (finalImageData) {
     drawImageDataContain(composeOnBackground(finalImageData, previewBackground));
   } else {
@@ -338,18 +428,21 @@ const loadImage = async (file) => {
     removedBitmap = null;
     baseResultImageData = null;
     finalImageData = null;
+    manualMask = null;
 
     sizeLabel.textContent = `${originalBitmap.width} x ${originalBitmap.height}`;
     engineLabel.textContent = "대기 중";
     processButton.disabled = false;
     resetButton.disabled = false;
     downloadButton.disabled = true;
+    clearBrushButton.disabled = true;
     setStatus("이미지를 불러왔습니다. 배경 제거를 실행하세요.", "ready");
     renderCanvas();
   } catch (error) {
     console.error(error);
     originalImage = null;
     originalBitmap = null;
+    manualMask = null;
     processButton.disabled = true;
     setStatus("이미지를 불러오지 못했습니다. JPG, PNG, WEBP처럼 브라우저가 지원하는 형식으로 다시 시도하세요.", "error");
   } finally {
@@ -373,6 +466,7 @@ const processImage = async () => {
   } finally {
     setBusy(false);
     downloadButton.disabled = false;
+    resetManualMask();
     applyAdjustments();
   }
 };
@@ -395,12 +489,14 @@ const resetAll = () => {
   removedBitmap = null;
   baseResultImageData = null;
   finalImageData = null;
+  manualMask = null;
   fileInput.value = "";
   mainCanvas.style.display = "none";
   emptyState.style.display = "block";
   processButton.disabled = true;
   resetButton.disabled = true;
   downloadButton.disabled = true;
+  clearBrushButton.disabled = true;
   engineLabel.textContent = "대기 중";
   sizeLabel.textContent = "-";
   setStatus("이미지를 선택하면 브라우저에서 처리합니다.");
@@ -439,6 +535,10 @@ dropZone.addEventListener("drop", (event) => {
 processButton.addEventListener("click", processImage);
 downloadButton.addEventListener("click", downloadPng);
 resetButton.addEventListener("click", resetAll);
+clearBrushButton.addEventListener("click", () => {
+  resetManualMask();
+  applyAdjustments();
+});
 
 document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -446,6 +546,14 @@ document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.add("active");
     currentView = button.dataset.view;
     renderCanvas();
+  });
+});
+
+document.querySelectorAll("[data-brush]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("[data-brush]").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    state.brushMode = button.dataset.brush;
   });
 });
 
@@ -470,11 +578,35 @@ customBg.addEventListener("input", () => {
   [featherRange, "feather"],
   [edgeRange, "edge"],
   [spillRange, "spill"],
+  [brushSizeRange, "brushSize"],
+  [brushSoftnessRange, "brushSoftness"],
 ].forEach(([range, key]) => {
   range.addEventListener("input", () => {
     state[key] = Number(range.value);
     updateRangeLabels();
-    applyAdjustments();
+    if (["threshold", "feather", "edge", "spill"].includes(key)) {
+      applyAdjustments();
+    }
+  });
+});
+
+mainCanvas.addEventListener("pointerdown", (event) => {
+  if (!finalImageData || currentView === "original" || currentView === "compare") return;
+  event.preventDefault();
+  mainCanvas.setPointerCapture(event.pointerId);
+  isPainting = true;
+  paintManualMask(getCanvasPoint(event));
+});
+
+mainCanvas.addEventListener("pointermove", (event) => {
+  if (!isPainting) return;
+  event.preventDefault();
+  paintManualMask(getCanvasPoint(event));
+});
+
+["pointerup", "pointercancel", "pointerleave"].forEach((eventName) => {
+  mainCanvas.addEventListener(eventName, () => {
+    isPainting = false;
   });
 });
 

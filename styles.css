@@ -284,7 +284,8 @@ h2 {
 }
 
 .segmented-control button.active,
-.zoom-group button:hover {
+.zoom-group button:hover,
+.tool-buttons button.active {
   background: #ffffff;
   color: var(--text);
   box-shadow: 0 1px 4px rgba(22, 33, 43, 0.12);
@@ -328,6 +329,11 @@ h2 {
   border: 1px solid rgba(23, 33, 43, 0.18);
   box-shadow: 0 18px 42px rgba(23, 33, 43, 0.18);
   image-rendering: auto;
+  touch-action: none;
+}
+
+#mainCanvas.brush-ready {
+  cursor: crosshair;
 }
 
 #emptyState {
@@ -370,6 +376,25 @@ h2 {
   padding: 0 10px;
   background: #ffffff;
   color: var(--text);
+}
+
+.tool-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f4f7fa;
+}
+
+.tool-buttons button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .range-field span {
@@ -446,7 +471,7 @@ input[type="range"] {
   .right-panel {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .control-section {
