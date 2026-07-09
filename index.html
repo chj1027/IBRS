@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>배경 제거 스튜디오</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LOCAL IMAGE TOOL</p>
+          <h1>배경 제거 스튜디오</h1>
+        </div>
+        <div class="top-actions">
+          <button id="resetButton" class="ghost-button" type="button" disabled>초기화</button>
+          <button id="downloadButton" class="primary-button" type="button" disabled>PNG 다운로드</button>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="left-panel">
+          <label id="dropZone" class="drop-zone" for="fileInput">
+            <input id="fileInput" type="file" accept="image/*" />
+            <span class="upload-icon">+</span>
+            <strong>이미지 업로드</strong>
+            <small>PNG, JPG, WEBP 파일을 여기에 놓거나 선택하세요.</small>
+          </label>
+
+          <div class="status-box">
+            <span id="statusDot" class="status-dot"></span>
+            <p id="statusText">이미지를 선택하면 브라우저에서 처리합니다.</p>
+          </div>
+
+          <div class="info-list">
+            <div>
+              <span>처리 방식</span>
+              <strong id="engineLabel">대기 중</strong>
+            </div>
+            <div>
+              <span>이미지 크기</span>
+              <strong id="sizeLabel">-</strong>
+            </div>
+          </div>
+        </aside>
+
+        <section class="preview-panel">
+          <div class="preview-toolbar">
+            <div class="segmented-control" aria-label="preview mode">
+              <button class="active" type="button" data-view="result">결과</button>
+              <button type="button" data-view="compare">비교</button>
+              <button type="button" data-view="original">원본</button>
+            </div>
+            <div class="zoom-group">
+              <button id="zoomOutButton" type="button" aria-label="축소">-</button>
+              <span id="zoomLabel">100%</span>
+              <button id="zoomInButton" type="button" aria-label="확대">+</button>
+            </div>
+          </div>
+
+          <div id="canvasStage" class="canvas-stage checkerboard">
+            <canvas id="mainCanvas"></canvas>
+            <p id="emptyState">이미지를 업로드하면 미리보기가 표시됩니다.</p>
+          </div>
+        </section>
+
+        <aside class="right-panel">
+          <section class="control-section">
+            <h2>처리 품질</h2>
+            <label class="field">
+              <span>품질 모드</span>
+              <select id="qualityMode">
+                <option value="balanced">균형</option>
+                <option value="fast">빠름</option>
+                <option value="high">고품질</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>처리 해상도</span>
+              <select id="processSize">
+                <option value="768">768 px</option>
+                <option value="512">512 px</option>
+                <option value="1024">1024 px</option>
+                <option value="original">원본 근접</option>
+              </select>
+            </label>
+            <button id="processButton" class="primary-button full-width" type="button" disabled>배경 제거</button>
+          </section>
+
+          <section class="control-section">
+            <h2>가장자리 조정</h2>
+            <label class="range-field">
+              <span>마스크 임계값 <b id="thresholdValue">8</b></span>
+              <input id="thresholdRange" type="range" min="-80" max="80" value="8" />
+            </label>
+            <label class="range-field">
+              <span>가장자리 부드럽게 <b id="featherValue">3</b></span>
+              <input id="featherRange" type="range" min="0" max="12" value="3" />
+            </label>
+            <label class="range-field">
+              <span>가장자리 확장/축소 <b id="edgeValue">0</b></span>
+              <input id="edgeRange" type="range" min="-8" max="8" value="0" />
+            </label>
+            <label class="range-field">
+              <span>색 번짐 제거 <b id="spillValue">18</b></span>
+              <input id="spillRange" type="range" min="0" max="70" value="18" />
+            </label>
+          </section>
+
+          <section class="control-section">
+            <h2>배경 미리보기</h2>
+            <div class="swatches">
+              <button class="swatch transparent active" type="button" data-bg="transparent" aria-label="투명"></button>
+              <button class="swatch white" type="button" data-bg="#ffffff" aria-label="흰색"></button>
+              <button class="swatch black" type="button" data-bg="#111111" aria-label="검정"></button>
+              <button class="swatch gray" type="button" data-bg="#d6dbe1" aria-label="회색"></button>
+              <input id="customBg" type="color" value="#8ecae6" aria-label="사용자 배경색" />
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
