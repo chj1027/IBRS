@@ -58,6 +58,45 @@ const state = {
   brushMode: "erase",
 };
 
+const presets = {
+  person: {
+    engine: "mediapipe",
+    quality: "balanced",
+    size: "768",
+    threshold: 8,
+    feather: 4,
+    edge: 1,
+    spill: 14,
+  },
+  product: {
+    engine: "imgly",
+    quality: "high",
+    size: "1024",
+    threshold: 16,
+    feather: 2,
+    edge: -1,
+    spill: 22,
+  },
+  sticker: {
+    engine: "imgly",
+    quality: "high",
+    size: "1024",
+    threshold: 28,
+    feather: 1,
+    edge: 1,
+    spill: 10,
+  },
+  text: {
+    engine: "imgly",
+    quality: "high",
+    size: "original",
+    threshold: 45,
+    feather: 1,
+    edge: 2,
+    spill: 12,
+  },
+};
+
 const setStatus = (message, type = "idle") => {
   statusText.textContent = message;
   statusDot.className = `status-dot ${type === "idle" ? "" : type}`;
@@ -85,6 +124,16 @@ const updateRangeLabels = () => {
   spillValue.textContent = state.spill;
   brushSizeValue.textContent = state.brushSize;
   brushSoftnessValue.textContent = state.brushSoftness;
+};
+
+const syncAdjustmentInputs = () => {
+  thresholdRange.value = state.threshold;
+  featherRange.value = state.feather;
+  edgeRange.value = state.edge;
+  spillRange.value = state.spill;
+  brushSizeRange.value = state.brushSize;
+  brushSoftnessRange.value = state.brushSoftness;
+  updateRangeLabels();
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -703,18 +752,68 @@ customBg.addEventListener("input", () => {
   renderCanvas();
 });
 
-aiEngine.addEventListener("change", () => {
-  if (!originalImage) return;
-  const engineName = aiEngine.value === "mediapipe" ? "MediaPipe 인물용" : "IMG.LY 범용";
+const clearProcessedResult = () => {
   engineLabel.textContent = "대기 중";
   baseResultImageData = null;
   finalImageData = null;
   manualMask = null;
   downloadButton.disabled = true;
   clearBrushButton.disabled = true;
+};
+
+aiEngine.addEventListener("change", () => {
+  if (!originalImage) return;
+  const engineName = aiEngine.value === "mediapipe" ? "MediaPipe 인물용" : "IMG.LY 범용";
+  clearProcessedResult();
   setProgress(0, "대기");
   setStatus(`${engineName}으로 다시 배경 제거를 실행하세요.`, "ready");
   renderCanvas();
+});
+
+[qualityMode, processSize].forEach((select) => {
+  select.addEventListener("change", () => {
+    if (!originalImage) return;
+    clearProcessedResult();
+    setProgress(0, "대기");
+    setStatus("처리 설정이 바뀌었습니다. 다시 배경 제거를 실행하세요.", "ready");
+    renderCanvas();
+  });
+});
+
+document.querySelectorAll("[data-preset]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const preset = presets[button.dataset.preset];
+    if (!preset) return;
+
+    const engineChanged = aiEngine.value !== preset.engine;
+    const processingChanged = engineChanged || qualityMode.value !== preset.quality || processSize.value !== preset.size;
+    aiEngine.value = preset.engine;
+    qualityMode.value = preset.quality;
+    processSize.value = preset.size;
+    state.threshold = preset.threshold;
+    state.feather = preset.feather;
+    state.edge = preset.edge;
+    state.spill = preset.spill;
+    syncAdjustmentInputs();
+
+    document.querySelectorAll("[data-preset]").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+
+    if (originalImage && processingChanged) {
+      clearProcessedResult();
+      setProgress(0, "대기");
+      setStatus("프리셋이 적용되었습니다. 바뀐 처리 설정으로 다시 배경 제거를 실행하세요.", "ready");
+      renderCanvas();
+      return;
+    }
+
+    if (baseResultImageData) {
+      applyAdjustments();
+      setStatus("프리셋이 현재 결과에 적용되었습니다.", "ready");
+    } else {
+      setStatus("프리셋이 적용되었습니다.", originalImage ? "ready" : "idle");
+    }
+  });
 });
 
 [

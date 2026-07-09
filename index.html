@@ -81,14 +81,14 @@
           <section class="control-section">
             <h2>처리 품질</h2>
             <label class="field">
-              <span>AI 방식</span>
+              <span>AI 방식 <button class="help-tip" type="button" aria-label="AI 방식 설명">?</button><small class="tip-text">IMG.LY는 제품, 스티커, 로고 등 일반 이미지에 강하고 MediaPipe는 사람 사진에 가볍게 동작합니다.</small></span>
               <select id="aiEngine">
                 <option value="imgly">IMG.LY 범용</option>
                 <option value="mediapipe">MediaPipe 인물용</option>
               </select>
             </label>
             <label class="field">
-              <span>품질 모드</span>
+              <span>품질 모드 <button class="help-tip" type="button" aria-label="품질 모드 설명">?</button><small class="tip-text">빠름은 속도 우선, 고품질은 더 큰 처리 해상도로 디테일을 살립니다.</small></span>
               <select id="qualityMode">
                 <option value="balanced">균형</option>
                 <option value="fast">빠름</option>
@@ -96,7 +96,7 @@
               </select>
             </label>
             <label class="field">
-              <span>처리 해상도</span>
+              <span>처리 해상도 <button class="help-tip" type="button" aria-label="처리 해상도 설명">?</button><small class="tip-text">작은 글자, 얇은 선, 머리카락은 1024px 이상이 유리하지만 처리 시간이 늘어납니다.</small></span>
               <select id="processSize">
                 <option value="768">768 px</option>
                 <option value="512">512 px</option>
@@ -108,21 +108,31 @@
           </section>
 
           <section class="control-section">
+            <h2>추천 프리셋</h2>
+            <div class="preset-grid">
+              <button type="button" data-preset="person">인물</button>
+              <button type="button" data-preset="product">제품</button>
+              <button type="button" data-preset="sticker">스티커/로고</button>
+              <button type="button" data-preset="text">흰 글자/얇은 선</button>
+            </div>
+          </section>
+
+          <section class="control-section">
             <h2>가장자리 조정</h2>
             <label class="range-field">
-              <span>마스크 임계값 <b id="thresholdValue">8</b></span>
+              <span>마스크 임계값 <button class="help-tip" type="button" aria-label="마스크 임계값 설명">?</button><small class="tip-text">값을 올리면 흐릿한 전경을 더 살립니다. 너무 올리면 배경 찌꺼기도 남을 수 있습니다.</small><b id="thresholdValue">8</b></span>
               <input id="thresholdRange" type="range" min="-80" max="80" value="8" />
             </label>
             <label class="range-field">
-              <span>가장자리 부드럽게 <b id="featherValue">3</b></span>
+              <span>가장자리 부드럽게 <button class="help-tip" type="button" aria-label="가장자리 부드럽게 설명">?</button><small class="tip-text">경계 톱니를 줄입니다. 글자나 얇은 선이 흐려지면 낮추세요.</small><b id="featherValue">3</b></span>
               <input id="featherRange" type="range" min="0" max="12" value="3" />
             </label>
             <label class="range-field">
-              <span>가장자리 확장/축소 <b id="edgeValue">0</b></span>
+              <span>가장자리 확장/축소 <button class="help-tip" type="button" aria-label="가장자리 확장 축소 설명">?</button><small class="tip-text">플러스는 전경을 넓히고, 마이너스는 배경 잔여물을 깎습니다.</small><b id="edgeValue">0</b></span>
               <input id="edgeRange" type="range" min="-8" max="8" value="0" />
             </label>
             <label class="range-field">
-              <span>색 번짐 제거 <b id="spillValue">18</b></span>
+              <span>색 번짐 제거 <button class="help-tip" type="button" aria-label="색 번짐 제거 설명">?</button><small class="tip-text">흰색, 초록색, 파란색 배경 잔상을 줄입니다. 너무 올리면 원래 색이 탁해질 수 있습니다.</small><b id="spillValue">18</b></span>
               <input id="spillRange" type="range" min="0" max="70" value="18" />
             </label>
           </section>
@@ -134,11 +144,11 @@
               <button type="button" data-brush="restore">복원</button>
             </div>
             <label class="range-field">
-              <span>브러시 크기 <b id="brushSizeValue">36</b></span>
+              <span>브러시 크기 <button class="help-tip" type="button" aria-label="브러시 크기 설명">?</button><small class="tip-text">작은 글자와 디테일은 작게, 넓은 영역은 크게 조절하세요.</small><b id="brushSizeValue">36</b></span>
               <input id="brushSizeRange" type="range" min="8" max="140" value="36" />
             </label>
             <label class="range-field">
-              <span>브러시 부드러움 <b id="brushSoftnessValue">45</b></span>
+              <span>브러시 부드러움 <button class="help-tip" type="button" aria-label="브러시 부드러움 설명">?</button><small class="tip-text">낮으면 선명하게 칠하고, 높으면 주변과 자연스럽게 섞입니다.</small><b id="brushSoftnessValue">45</b></span>
               <input id="brushSoftnessRange" type="range" min="0" max="100" value="45" />
             </label>
             <button id="clearBrushButton" class="ghost-button full-width" type="button" disabled>수동 보정 초기화</button>
