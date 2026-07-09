@@ -83,14 +83,6 @@ button:disabled {
   max-width: 1440px;
 }
 
-.eyebrow {
-  margin: 0 0 4px;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
 h1,
 h2,
 p {
@@ -100,6 +92,33 @@ p {
 h1 {
   font-size: 28px;
   line-height: 1.2;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #e5f3f1;
+  color: var(--accent);
+}
+
+.brand-icon svg {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 h2 {
@@ -465,6 +484,7 @@ h2 {
   align-items: center;
   gap: 4px;
   min-height: 22px;
+  justify-content: flex-start;
 }
 
 .field select {
@@ -479,6 +499,7 @@ h2 {
 
 .help-tip {
   display: inline-grid;
+  flex: 0 0 auto;
   place-items: center;
   width: 18px;
   height: 18px;
@@ -503,7 +524,7 @@ h2 {
 .tip-text {
   position: absolute;
   z-index: 20;
-  left: 0;
+  left: 22px;
   bottom: calc(100% + 8px);
   display: none;
   width: min(260px, 78vw);
@@ -573,11 +594,11 @@ h2 {
 
 .range-field span {
   display: flex;
-  justify-content: space-between;
   gap: 10px;
 }
 
 .range-field b {
+  margin-left: auto;
   color: var(--text);
 }
 
