@@ -66,6 +66,7 @@
           <div class="preview-toolbar">
             <div class="segmented-control" aria-label="preview mode">
               <button class="active" type="button" data-view="result">결과</button>
+              <button type="button" data-view="output">출력</button>
               <button type="button" data-view="compare">비교</button>
               <button type="button" data-view="mask">마스크</button>
               <button type="button" data-view="original">원본</button>
@@ -131,6 +132,27 @@
               <button type="button" data-fix="hair">머리카락 자연스럽게</button>
               <button id="blackPreviewButton" type="button">검정 배경 확인</button>
             </div>
+          </section>
+
+          <section class="control-section">
+            <h2>출력 프레임</h2>
+            <label class="toggle-field">
+              <input id="autoCropToggle" type="checkbox" checked />
+              <span>자동 크롭 적용 <button class="help-tip" type="button" aria-label="자동 크롭 설명">?</button><small class="tip-text">전경이 있는 영역만 잘라 다운로드합니다. 끄면 작업 캔버스 크기를 그대로 유지합니다.</small></span>
+            </label>
+            <label class="field">
+              <span>출력 비율 <button class="help-tip" type="button" aria-label="출력 비율 설명">?</button><small class="tip-text">자동은 전경 모양을 유지하고, 1:1이나 4:5는 썸네일/상품 이미지용 캔버스로 맞춥니다.</small></span>
+              <select id="outputRatio">
+                <option value="auto">자동</option>
+                <option value="1:1">1:1</option>
+                <option value="4:5">4:5</option>
+                <option value="16:9">16:9</option>
+              </select>
+            </label>
+            <label class="range-field">
+              <span>출력 여백 <button class="help-tip" type="button" aria-label="출력 여백 설명">?</button><small class="tip-text">전경 주변에 남길 여백입니다. 스티커나 상품 이미지는 8~16% 정도가 보기 좋습니다.</small><b id="outputPaddingValue">10%</b></span>
+              <input id="outputPaddingRange" type="range" min="0" max="40" value="10" />
+            </label>
           </section>
 
           <section class="control-section">

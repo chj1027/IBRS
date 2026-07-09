@@ -475,7 +475,8 @@ h2 {
 }
 
 .field,
-.range-field {
+.range-field,
+.toggle-field {
   display: grid;
   gap: 8px;
   color: var(--muted);
@@ -484,13 +485,29 @@ h2 {
 }
 
 .field > span,
-.range-field > span {
+.range-field > span,
+.toggle-field {
   position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
   min-height: 22px;
   justify-content: flex-start;
+}
+
+.toggle-field {
+  grid-template-columns: auto 1fr;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.toggle-field input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 .field select {
@@ -501,6 +518,12 @@ h2 {
   padding: 0 10px;
   background: #ffffff;
   color: var(--text);
+}
+
+.field select:disabled,
+.range-field input:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 .help-tip {

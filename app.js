@@ -22,12 +22,16 @@ const edgeRange = document.querySelector("#edgeRange");
 const spillRange = document.querySelector("#spillRange");
 const brushSizeRange = document.querySelector("#brushSizeRange");
 const brushSoftnessRange = document.querySelector("#brushSoftnessRange");
+const autoCropToggle = document.querySelector("#autoCropToggle");
+const outputRatio = document.querySelector("#outputRatio");
+const outputPaddingRange = document.querySelector("#outputPaddingRange");
 const thresholdValue = document.querySelector("#thresholdValue");
 const featherValue = document.querySelector("#featherValue");
 const edgeValue = document.querySelector("#edgeValue");
 const spillValue = document.querySelector("#spillValue");
 const brushSizeValue = document.querySelector("#brushSizeValue");
 const brushSoftnessValue = document.querySelector("#brushSoftnessValue");
+const outputPaddingValue = document.querySelector("#outputPaddingValue");
 const zoomOutButton = document.querySelector("#zoomOutButton");
 const zoomInButton = document.querySelector("#zoomInButton");
 const zoomLabel = document.querySelector("#zoomLabel");
@@ -57,6 +61,7 @@ const state = {
   spill: Number(spillRange.value),
   brushSize: Number(brushSizeRange.value),
   brushSoftness: Number(brushSoftnessRange.value),
+  outputPadding: Number(outputPaddingRange.value),
   brushMode: "erase",
 };
 
@@ -140,6 +145,12 @@ const setBusy = (busy) => {
   processSize.disabled = busy;
 };
 
+const syncOutputControls = () => {
+  const cropEnabled = autoCropToggle.checked;
+  outputRatio.disabled = !cropEnabled;
+  outputPaddingRange.disabled = !cropEnabled;
+};
+
 const updateRangeLabels = () => {
   thresholdValue.textContent = state.threshold;
   featherValue.textContent = state.feather;
@@ -147,6 +158,7 @@ const updateRangeLabels = () => {
   spillValue.textContent = state.spill;
   brushSizeValue.textContent = state.brushSize;
   brushSoftnessValue.textContent = state.brushSoftness;
+  outputPaddingValue.textContent = `${state.outputPadding}%`;
 };
 
 const syncAdjustmentInputs = () => {
@@ -156,6 +168,7 @@ const syncAdjustmentInputs = () => {
   spillRange.value = state.spill;
   brushSizeRange.value = state.brushSize;
   brushSoftnessRange.value = state.brushSoftness;
+  outputPaddingRange.value = state.outputPadding;
   updateRangeLabels();
 };
 
@@ -563,6 +576,91 @@ const composeOnBackground = (imageData, background) => {
   return canvasCtx.getImageData(0, 0, imageData.width, imageData.height);
 };
 
+const getAlphaBounds = (imageData, threshold = 8) => {
+  const { width, height, data } = imageData;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const alpha = data[(y * width + x) * 4 + 3];
+      if (alpha <= threshold) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return { x: 0, y: 0, width, height };
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+  };
+};
+
+const getRatioValue = () => {
+  if (outputRatio.value === "1:1") return 1;
+  if (outputRatio.value === "4:5") return 4 / 5;
+  if (outputRatio.value === "16:9") return 16 / 9;
+  return null;
+};
+
+const createOutputImageData = (imageData) => {
+  if (!autoCropToggle.checked) {
+    return imageData;
+  }
+
+  const bounds = getAlphaBounds(imageData);
+  const paddingScale = state.outputPadding / 100;
+  let contentWidth = Math.max(1, bounds.width);
+  let contentHeight = Math.max(1, bounds.height);
+  let outputWidth = Math.ceil(contentWidth * (1 + paddingScale * 2));
+  let outputHeight = Math.ceil(contentHeight * (1 + paddingScale * 2));
+  const ratio = getRatioValue();
+
+  if (ratio) {
+    const currentRatio = outputWidth / outputHeight;
+    if (currentRatio < ratio) {
+      outputWidth = Math.ceil(outputHeight * ratio);
+    } else {
+      outputHeight = Math.ceil(outputWidth / ratio);
+    }
+  }
+
+  outputWidth = Math.max(1, outputWidth);
+  outputHeight = Math.max(1, outputHeight);
+
+  const sourceCanvas = new OffscreenCanvas(imageData.width, imageData.height);
+  const sourceCtx = sourceCanvas.getContext("2d");
+  sourceCtx.putImageData(imageData, 0, 0);
+
+  const outputCanvas = new OffscreenCanvas(outputWidth, outputHeight);
+  const outputCtx = outputCanvas.getContext("2d", { willReadFrequently: true });
+  const targetX = Math.round((outputWidth - contentWidth) / 2);
+  const targetY = Math.round((outputHeight - contentHeight) / 2);
+  outputCtx.drawImage(
+    sourceCanvas,
+    bounds.x,
+    bounds.y,
+    contentWidth,
+    contentHeight,
+    targetX,
+    targetY,
+    contentWidth,
+    contentHeight,
+  );
+
+  return outputCtx.getImageData(0, 0, outputWidth, outputHeight);
+};
+
 const renderCompare = () => {
   if (!finalImageData) return;
   const result = composeOnBackground(finalImageData, previewBackground);
@@ -590,7 +688,10 @@ const renderCanvas = () => {
   if (!originalBitmap) return;
 
   mainCanvas.style.display = "block";
-  mainCanvas.classList.toggle("brush-ready", Boolean(finalImageData) && currentView !== "original" && currentView !== "compare");
+  mainCanvas.classList.toggle(
+    "brush-ready",
+    Boolean(finalImageData) && currentView !== "original" && currentView !== "compare" && currentView !== "output",
+  );
   emptyState.style.display = "none";
   canvasStage.classList.toggle("checkerboard", previewBackground === "transparent" && currentView !== "mask");
   canvasStage.style.backgroundColor = currentView === "mask" ? "#1f2933" : previewBackground === "transparent" ? "#ffffff" : previewBackground;
@@ -599,6 +700,8 @@ const renderCanvas = () => {
     drawImageDataContain(drawBitmapToImageData(originalBitmap));
   } else if (currentView === "compare" && finalImageData) {
     renderCompare();
+  } else if (currentView === "output" && finalImageData) {
+    drawImageDataContain(composeOnBackground(createOutputImageData(finalImageData), previewBackground));
   } else if (currentView === "mask" && finalImageData) {
     drawImageDataContain(createMaskImageData(finalImageData));
   } else if (finalImageData) {
@@ -682,10 +785,11 @@ const processImage = async () => {
 
 const downloadPng = () => {
   if (!finalImageData) return;
+  const exportImageData = createOutputImageData(finalImageData);
   const exportCanvas = document.createElement("canvas");
-  exportCanvas.width = finalImageData.width;
-  exportCanvas.height = finalImageData.height;
-  exportCanvas.getContext("2d").putImageData(finalImageData, 0, 0);
+  exportCanvas.width = exportImageData.width;
+  exportCanvas.height = exportImageData.height;
+  exportCanvas.getContext("2d").putImageData(exportImageData, 0, 0);
   const link = document.createElement("a");
   link.download = "background-removed.png";
   link.href = exportCanvas.toDataURL("image/png");
@@ -884,18 +988,33 @@ blackPreviewButton.addEventListener("click", () => {
   [spillRange, "spill"],
   [brushSizeRange, "brushSize"],
   [brushSoftnessRange, "brushSoftness"],
+  [outputPaddingRange, "outputPadding"],
 ].forEach(([range, key]) => {
   range.addEventListener("input", () => {
     state[key] = Number(range.value);
     updateRangeLabels();
     if (["threshold", "feather", "edge", "spill"].includes(key)) {
       applyAdjustments();
+    } else if (key === "outputPadding" && currentView === "output") {
+      renderCanvas();
+    }
+  });
+});
+
+[autoCropToggle, outputRatio].forEach((control) => {
+  control.addEventListener("change", () => {
+    syncOutputControls();
+    if (currentView === "output") {
+      renderCanvas();
+    }
+    if (finalImageData) {
+      setStatus("출력 프레임 설정이 적용되었습니다. PNG 다운로드에 반영됩니다.", "ready");
     }
   });
 });
 
 mainCanvas.addEventListener("pointerdown", (event) => {
-  if (!finalImageData || currentView === "original" || currentView === "compare") return;
+  if (!finalImageData || currentView === "original" || currentView === "compare" || currentView === "output") return;
   event.preventDefault();
   mainCanvas.setPointerCapture(event.pointerId);
   isPainting = true;
@@ -925,3 +1044,4 @@ zoomInButton.addEventListener("click", () => {
 });
 
 updateRangeLabels();
+syncOutputControls();
