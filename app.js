@@ -33,12 +33,9 @@ const zoomInButton = document.querySelector("#zoomInButton");
 const zoomLabel = document.querySelector("#zoomLabel");
 const customBg = document.querySelector("#customBg");
 const clearBrushButton = document.querySelector("#clearBrushButton");
-const saveSettingsButton = document.querySelector("#saveSettingsButton");
-const loadSettingsButton = document.querySelector("#loadSettingsButton");
 const blackPreviewButton = document.querySelector("#blackPreviewButton");
 
 const ctx = mainCanvas.getContext("2d", { willReadFrequently: true });
-const savedSettingsKey = "ibrs-settings";
 
 let originalImage = null;
 let originalBitmap = null;
@@ -51,6 +48,7 @@ let previewBackground = "transparent";
 let zoom = 1;
 let isPainting = false;
 let imageSegmenter = null;
+let pendingPaintFrame = 0;
 
 const state = {
   threshold: Number(thresholdRange.value),
@@ -159,34 +157,6 @@ const syncAdjustmentInputs = () => {
   brushSizeRange.value = state.brushSize;
   brushSoftnessRange.value = state.brushSoftness;
   updateRangeLabels();
-};
-
-const captureSettings = () => ({
-  engine: aiEngine.value,
-  quality: qualityMode.value,
-  size: processSize.value,
-  threshold: state.threshold,
-  feather: state.feather,
-  edge: state.edge,
-  spill: state.spill,
-  brushSize: state.brushSize,
-  brushSoftness: state.brushSoftness,
-});
-
-const applySettings = (settings) => {
-  if (!settings) return false;
-
-  aiEngine.value = settings.engine ?? aiEngine.value;
-  qualityMode.value = settings.quality ?? qualityMode.value;
-  processSize.value = settings.size ?? processSize.value;
-  state.threshold = Number(settings.threshold ?? state.threshold);
-  state.feather = Number(settings.feather ?? state.feather);
-  state.edge = Number(settings.edge ?? state.edge);
-  state.spill = Number(settings.spill ?? state.spill);
-  state.brushSize = Number(settings.brushSize ?? state.brushSize);
-  state.brushSoftness = Number(settings.brushSoftness ?? state.brushSoftness);
-  syncAdjustmentInputs();
-  return true;
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -530,7 +500,15 @@ const paintManualMask = (point) => {
   }
 
   clearBrushButton.disabled = false;
-  applyAdjustments();
+  scheduleAdjustmentRender();
+};
+
+const scheduleAdjustmentRender = () => {
+  if (pendingPaintFrame) return;
+  pendingPaintFrame = requestAnimationFrame(() => {
+    pendingPaintFrame = 0;
+    applyAdjustments();
+  });
 };
 
 const applyAdjustments = () => {
@@ -897,42 +875,6 @@ blackPreviewButton.addEventListener("click", () => {
   document.querySelector('[data-bg="#111111"]')?.classList.add("active");
   previewBackground = "#111111";
   renderCanvas();
-});
-
-saveSettingsButton.addEventListener("click", () => {
-  localStorage.setItem(savedSettingsKey, JSON.stringify(captureSettings()));
-  setStatus("현재 설정을 이 브라우저에 저장했습니다.", "ready");
-});
-
-loadSettingsButton.addEventListener("click", () => {
-  const raw = localStorage.getItem(savedSettingsKey);
-  if (!raw) {
-    setStatus("저장된 설정이 없습니다.", "error");
-    return;
-  }
-
-  try {
-    const before = captureSettings();
-    const loaded = JSON.parse(raw);
-    applySettings(loaded);
-    const processingChanged = before.engine !== aiEngine.value || before.quality !== qualityMode.value || before.size !== processSize.value;
-
-    if (originalImage && processingChanged) {
-      clearProcessedResult();
-      setProgress(0, "대기");
-      setStatus("저장 설정을 불러왔습니다. 바뀐 처리 설정으로 다시 배경 제거를 실행하세요.", "ready");
-      renderCanvas();
-      return;
-    }
-
-    if (baseResultImageData) {
-      applyAdjustments();
-    }
-    setStatus("저장 설정을 불러왔습니다.", "ready");
-  } catch (error) {
-    console.error(error);
-    setStatus("저장 설정을 불러오지 못했습니다.", "error");
-  }
 });
 
 [

@@ -191,6 +191,7 @@ h2 {
   gap: 18px;
   max-width: 1440px;
   margin: 0 auto;
+  align-items: start;
 }
 
 .left-panel,
@@ -353,7 +354,9 @@ h2 {
 
 .preview-panel {
   display: grid;
-  grid-template-rows: auto minmax(500px, calc(100vh - 142px));
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(100vh - 124px);
+  min-height: 560px;
   overflow: hidden;
 }
 
@@ -454,6 +457,9 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-height: calc(100vh - 124px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .control-section {
@@ -501,16 +507,18 @@ h2 {
   display: inline-grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   margin-left: 4px;
   border: 1px solid #b7c1cc;
   border-radius: 50%;
   background: #ffffff;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
-  line-height: 1;
+  line-height: 17px;
+  padding: 0;
+  text-align: center;
   vertical-align: 1px;
 }
 
@@ -584,12 +592,6 @@ h2 {
   border-color: var(--accent);
   background: #e5f3f1;
   color: var(--accent-dark);
-}
-
-.setting-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
 }
 
 .range-field span {
@@ -700,7 +702,14 @@ input[type="range"] {
   }
 
   .preview-panel {
+    height: auto;
+    min-height: 0;
     grid-template-rows: auto 430px;
+  }
+
+  .right-panel {
+    max-height: none;
+    overflow: visible;
   }
 
   .segmented-control {
