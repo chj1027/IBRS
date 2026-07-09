@@ -8,6 +8,9 @@ const emptyState = document.querySelector("#emptyState");
 const canvasStage = document.querySelector("#canvasStage");
 const statusText = document.querySelector("#statusText");
 const statusDot = document.querySelector("#statusDot");
+const progressLabel = document.querySelector("#progressLabel");
+const progressValue = document.querySelector("#progressValue");
+const progressBar = document.querySelector("#progressBar");
 const engineLabel = document.querySelector("#engineLabel");
 const sizeLabel = document.querySelector("#sizeLabel");
 const qualityMode = document.querySelector("#qualityMode");
@@ -42,6 +45,7 @@ let currentView = "result";
 let previewBackground = "transparent";
 let zoom = 1;
 let isPainting = false;
+let imageSegmenter = null;
 
 const state = {
   threshold: Number(thresholdRange.value),
@@ -56,6 +60,13 @@ const state = {
 const setStatus = (message, type = "idle") => {
   statusText.textContent = message;
   statusDot.className = `status-dot ${type === "idle" ? "" : type}`;
+};
+
+const setProgress = (value, label) => {
+  const percent = clamp(Math.round(value), 0, 100);
+  progressLabel.textContent = label;
+  progressValue.textContent = `${percent}%`;
+  progressBar.style.width = `${percent}%`;
 };
 
 const setBusy = (busy) => {
@@ -170,20 +181,100 @@ const simpleColorFallback = () => {
   return imageData;
 };
 
-const removeBackgroundWithAi = async () => {
-  const { removeBackground } = await import("https://esm.sh/@imgly/background-removal@1.5.5");
-  const inputBlob = await resizeImageFile(originalImage);
-  const resultBlob = await removeBackground(inputBlob, {
-    debug: false,
-    output: {
-      format: "image/png",
-      quality: 0.95,
+const getMediaPipeSegmenter = async () => {
+  if (imageSegmenter) return imageSegmenter;
+
+  setProgress(25, "MediaPipe 로딩");
+  const { FilesetResolver, ImageSegmenter } = await import(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs"
+  );
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
+  );
+
+  const options = {
+    baseOptions: {
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
+      delegate: "GPU",
     },
+    runningMode: "IMAGE",
+    outputCategoryMask: true,
+    outputConfidenceMasks: true,
+  };
+
+  try {
+    imageSegmenter = await ImageSegmenter.createFromOptions(vision, options);
+  } catch (error) {
+    console.warn("MediaPipe GPU delegate failed, retrying with CPU", error);
+    imageSegmenter = await ImageSegmenter.createFromOptions(vision, {
+      ...options,
+      baseOptions: {
+        ...options.baseOptions,
+        delegate: "CPU",
+      },
+    });
+  }
+
+  return imageSegmenter;
+};
+
+const createProcessingCanvas = () => {
+  const target = getTargetSize();
+  const scale = Math.min(1, target / Math.max(originalBitmap.width, originalBitmap.height));
+  const width = Math.max(1, Math.round(originalBitmap.width * scale));
+  const height = Math.max(1, Math.round(originalBitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  const canvasCtx = canvas.getContext("2d", { willReadFrequently: true });
+  canvas.width = width;
+  canvas.height = height;
+  canvasCtx.imageSmoothingQuality = "high";
+  canvasCtx.drawImage(originalBitmap, 0, 0, width, height);
+  return canvas;
+};
+
+const readMaskData = (result, expectedLength) => {
+  if (result.confidenceMasks?.length) {
+    const masks = result.confidenceMasks;
+    const foregroundMask = masks[masks.length - 1];
+    const confidence = foregroundMask.getAsFloat32Array();
+    foregroundMask.close?.();
+    return Uint8ClampedArray.from(confidence, (value) => clamp(value * 255, 0, 255));
+  }
+
+  if (result.categoryMask) {
+    const categories = result.categoryMask.getAsUint8Array();
+    result.categoryMask.close?.();
+    return Uint8ClampedArray.from(categories, (value) => (value > 0 ? 255 : 0));
+  }
+
+  return new Uint8ClampedArray(expectedLength);
+};
+
+const removeBackgroundWithAi = async () => {
+  setProgress(15, "이미지 준비");
+  const segmenter = await getMediaPipeSegmenter();
+  const inputCanvas = createProcessingCanvas();
+  const imageData = inputCanvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, inputCanvas.width, inputCanvas.height);
+
+  setProgress(55, "배경 분석");
+  const result = await new Promise((resolve, reject) => {
+    try {
+      segmenter.segment(inputCanvas, resolve);
+    } catch (error) {
+      reject(error);
+    }
   });
 
-  removedBitmap = await loadBitmap(resultBlob);
-  engineLabel.textContent = "AI 모델";
-  return drawBitmapToImageData(removedBitmap);
+  setProgress(82, "마스크 생성");
+  const alpha = readMaskData(result, imageData.width * imageData.height);
+  for (let pixel = 0, index = 0; index < imageData.data.length; pixel += 1, index += 4) {
+    imageData.data[index + 3] = alpha[pixel];
+  }
+
+  result.close?.();
+  engineLabel.textContent = "MediaPipe";
+  return imageData;
 };
 
 const boxAlpha = (alpha, width, height, radius, mode) => {
@@ -421,6 +512,7 @@ const loadImage = async (file) => {
 
   setBusy(true);
   setStatus("이미지를 불러오는 중입니다.", "busy");
+  setProgress(8, "이미지 로딩");
 
   try {
     originalImage = file;
@@ -437,6 +529,7 @@ const loadImage = async (file) => {
     downloadButton.disabled = true;
     clearBrushButton.disabled = true;
     setStatus("이미지를 불러왔습니다. 배경 제거를 실행하세요.", "ready");
+    setProgress(0, "대기");
     renderCanvas();
   } catch (error) {
     console.error(error);
@@ -445,6 +538,7 @@ const loadImage = async (file) => {
     manualMask = null;
     processButton.disabled = true;
     setStatus("이미지를 불러오지 못했습니다. JPG, PNG, WEBP처럼 브라우저가 지원하는 형식으로 다시 시도하세요.", "error");
+    setProgress(0, "오류");
   } finally {
     setBusy(false);
   }
@@ -454,20 +548,24 @@ const processImage = async () => {
   if (!originalImage) return;
   setBusy(true);
   downloadButton.disabled = true;
-  setStatus("AI 모델을 불러오고 배경을 제거하는 중입니다. 첫 실행은 시간이 걸릴 수 있습니다.", "busy");
+  setStatus("MediaPipe 모델로 배경을 분석하는 중입니다. 첫 실행은 시간이 걸릴 수 있습니다.", "busy");
+  setProgress(5, "시작");
 
   try {
     baseResultImageData = await removeBackgroundWithAi();
+    setProgress(92, "후처리");
     setStatus("배경 제거가 완료되었습니다. 오른쪽 조절값으로 가장자리를 다듬을 수 있습니다.", "ready");
   } catch (error) {
     console.warn(error);
+    setProgress(88, "fallback 처리");
     baseResultImageData = simpleColorFallback();
-    setStatus("AI 모델 실행에 실패해 색상 기반 방식으로 처리했습니다. 단색 배경 이미지에서 가장 잘 동작합니다.", "error");
+    setStatus("MediaPipe 실행에 실패해 색상 기반 방식으로 처리했습니다. 단색 배경 이미지에서 가장 잘 동작합니다.", "error");
   } finally {
     setBusy(false);
     downloadButton.disabled = false;
     resetManualMask();
     applyAdjustments();
+    setProgress(100, "완료");
   }
 };
 
@@ -499,6 +597,7 @@ const resetAll = () => {
   clearBrushButton.disabled = true;
   engineLabel.textContent = "대기 중";
   sizeLabel.textContent = "-";
+  setProgress(0, "대기");
   setStatus("이미지를 선택하면 브라우저에서 처리합니다.");
 };
 
